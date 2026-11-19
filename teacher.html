@@ -589,8 +589,8 @@ function setupHTML(){
   return `<div class="stack">
     <div class="card">
       <h3>GitHub connection</h3>
-      ${conn ? `<p class="small">Connected to <b>${esc(conn.owner)}/${esc(conn.repo)}</b>. Students use <b>${esc(conn.owner.toLowerCase())}.github.io/${esc(conn.repo)}/</b></p>` : `<ol class="steps">
-        <li>Upload <b>index.html</b> and <b>teacher.html</b> to a public GitHub repository (for example <b>citizenship</b>) and turn on GitHub Pages for it.</li>
+      ${conn ? `<p class="small">Connected to <b>${esc(conn.owner)}/${esc(conn.repo)}</b>. Students use <b>${esc(conn.owner.toLowerCase())}.github.io/${esc(conn.repo)}/citizenship.html</b></p>` : `<ol class="steps">
+        <li>Upload <b>citizenship.html</b> and <b>teacher.html</b> to the main folder of your public <b>citizenship</b> repository, with GitHub Pages turned on.</li>
         <li>On GitHub, create a fine-grained personal access token for that repository only, with <b>Contents: Read and write</b>.</li>
         <li>Fill in the boxes below on each phone or computer you'll use. Pick a teacher passphrase you won't forget: it locks your full log, and it can't be recovered.</li>
       </ol>`}
