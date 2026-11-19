@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Citizenship Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Phone-first: sticky header (title, sync state, tabs, class chips), tile grid, bottom sheet, fixed Submit bar. */
+:root{
+  --bg:#eef2f4; --surface:#ffffff; --ink:#15232c; --muted:#5b6b75; --line:#d5dde2;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --accent-soft:#dbe8f1;
+  --culprit:#a8402f; --culprit-soft:#f6e1dc;
+  --gold:#b7791f; --gold-soft:#f6e9d2; --good:#2f7d4f;
+  --shadow:0 8px 30px rgba(21,35,44,.18);
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0f171c; --surface:#18232a; --ink:#e5edf1; --muted:#93a4ae; --line:#2a3943;
+  --accent:#6fb0dc; --accent-ink:#0b1a24; --accent-soft:#1d3546;
+  --culprit:#ec8a78; --culprit-soft:#3b211c;
+  --gold:#e0a84a; --gold-soft:#3a2d17; --good:#62c08a;
+  --shadow:0 8px 30px rgba(0,0,0,.5); color-scheme:dark;}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-top:env(safe-area-inset-top,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-direction:column;gap:10px;padding-block:10px 12px}
+.titlerow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0;letter-spacing:-.01em}
+.credit{font-size:.7rem;color:var(--muted);text-align:right;line-height:1.3;max-width:13em}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);border:0;background:none;padding:2px 0;margin-top:2px}
+.sync .dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+.sync.pending .dot{background:var(--gold)} .sync.err .dot{background:var(--culprit)}
+.sync.pending{color:var(--ink);font-weight:600}
+.tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px}
+.tabs button{flex:1;border:0;background:transparent;padding:7px 6px;border-radius:8px;font-weight:600;font-size:.88rem;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.chip{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;white-space:nowrap;font-weight:500;font-size:.88rem}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.small{font-size:.8rem;color:var(--muted)}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:4px 2px;font-size:.85rem}
+
+main{padding-block:14px 130px}
+.summary{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.summary b{font-family:var(--display);font-size:1.15rem;font-variant-numeric:tabular-nums}
+.datebox input,.rangebar input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-height:84px;transition:transform .08s}
+.tile:active{transform:scale(.97)}
+.tile .nm{font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.tile .meta{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.pips{display:flex;gap:4px;align-items:center}
+.pip{width:13px;height:13px;border-radius:50%;border:2px solid var(--line)}
+.pip.on{background:var(--accent);border-color:var(--accent)}
+.pip.target{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--muted)}
+.pip.on.max{background:var(--gold);border-color:var(--gold)}
+.xbadge{font-size:.72rem;font-weight:700;color:var(--culprit);background:var(--culprit-soft);border-radius:6px;padding:1px 6px;margin-left:4px}
+.gr{font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+.tile.absent{opacity:.5}
+.tile.absent .nm::after{content:" · absent";font-weight:400;color:var(--muted);font-size:.8rem}
+
+.submitbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.submitbar .wrap{display:flex;gap:10px;align-items:center;padding-block:10px 0}
+.submitbar .btn{flex:1}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:12px 16px;border-radius:10px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:var(--accent-soft);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--culprit);border:1px solid var(--culprit)}
+.btn.sm{padding:8px 12px;font-size:.88rem}
+
+.empty,.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.empty{border-style:dashed;max-width:560px}
+.empty h2,h3{font-family:var(--display);margin:0}
+.empty h2{font-size:1.2rem} h3{font-size:1.05rem}
+textarea,.field input,.field select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px}
+textarea{min-height:120px;resize:vertical;line-height:1.5}
+label.lbl,.lbl{font-weight:600;font-size:.85rem;display:block;margin-bottom:4px}
+.stack{display:flex;flex-direction:column;gap:14px;max-width:640px}
+.nums{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+ol.steps{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.formula{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.codes{display:grid;grid-template-columns:1fr auto auto;gap:4px 10px;font-size:.88rem;align-items:center}
+.codes code{font-family:ui-monospace,Menlo,monospace;font-size:.95rem;letter-spacing:.06em}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,20,26,.45);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--surface);border-radius:18px 18px 0 0;box-shadow:var(--shadow);max-height:90vh;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.sheet .wrap{max-width:560px;display:flex;flex-direction:column;gap:12px;padding-block:14px 4px}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
+.sheethead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheethead h2{font-family:var(--display);margin:0;font-size:1.3rem;overflow-wrap:anywhere}
+.count{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;font-size:.9rem}
+.seg{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;padding:8px;border-radius:8px;font-weight:600;color:var(--muted)}
+.seg button[aria-selected="true"].cit{background:var(--accent);color:var(--accent-ink)}
+.seg button[aria-selected="true"].cul{background:var(--culprit);color:#fff}
+.seg button[aria-selected="true"].fb{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.cats{display:grid;grid-template-columns:1fr;gap:6px}
+.cat{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px 14px;font-weight:500;font-size:1rem}
+.cat .n{font-family:var(--display);font-weight:700;color:var(--accent);min-width:1.2em}
+.cat.x .n{color:var(--culprit)}
+.cat.x{border-color:color-mix(in srgb,var(--culprit) 35%,var(--line))}
+.cat:disabled{opacity:.45;cursor:not-allowed}
+.cat:not(:disabled):active{background:var(--accent-soft)}
+.cat.x:not(:disabled):active{background:var(--culprit-soft)}
+.othernote{width:100%;border:1px dashed var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;font-size:.9rem}
+.dayrow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.dayrow .field{flex:1 1 180px;min-width:0}
+.dayrow .field input{background:var(--bg)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:1.2rem;font-weight:700;line-height:1}
+.stepper b{font-family:var(--display);font-size:1.3rem;min-width:1.4em;text-align:center;font-variant-numeric:tabular-nums}
+.daytitle{font-weight:600}
+.unitrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.unitrow .field.wide{grid-column:1 / -1}
+.checkin{background:var(--gold-soft);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.checkin .names{display:flex;flex-wrap:wrap;gap:6px}
+.checkin .names button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 10px;font-size:.85rem}
+.pts{font-variant-numeric:tabular-nums;font-weight:600}
+.kinds{display:flex;flex-wrap:wrap;gap:6px}
+.kinds button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 12px;font-size:.85rem;font-weight:500}
+.kinds button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.namebtn{border:0;background:none;padding:0;color:var(--accent);font-weight:600;text-align:left}
+.maxnote{background:var(--gold-soft);border-radius:10px;padding:8px 12px;font-size:.88rem}
+.loglist{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.loglist li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.9rem;border-bottom:1px solid var(--line);padding:6px 0}
+.loglist .tag{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}
+.tag.c{color:var(--accent)} .tag.x{color:var(--culprit)}
+.x-rm{border:0;background:none;color:var(--culprit);font-weight:600;font-size:.85rem;padding:4px 6px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.switch{display:flex;gap:8px;align-items:center;font-size:.9rem}
+
+/* report */
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;vertical-align:bottom;white-space:normal;min-width:5.5em}
+th.x{color:var(--culprit)}
+td.grade{font-weight:700;font-size:.95rem}
+tr:last-child td{border-bottom:0}
+.rangebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:30;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow);max-width:calc(100% - 32px);font-size:.9rem}
+.toast button{border:0;background:none;color:var(--bg);font-weight:700;text-decoration:underline}
+.banner{background:var(--gold-soft);border-radius:10px;padding:8px 12px;font-size:.85rem;margin-bottom:12px}
+.banner.err{background:var(--culprit-soft)}
+@media (prefers-reduced-motion: reduce){.tile{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="titlerow">
+      <div>
+        <h1>Citizenship Tracker</h1>
+        <button class="sync" id="syncPill" data-act="sync"><span class="dot"></span><span id="syncText">Not connected</span></button>
+      </div>
+      <div class="credit">Prepared with AI support, reviewed by Mr. Johnson</div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-view="log">Log</button>
+      <button role="tab" aria-selected="false" data-view="report">Grades</button>
+      <button role="tab" aria-selected="false" data-view="setup">Setup</button>
+    </div>
+    <div class="chips" id="classChips"></div>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="submitRoot"></div>
+<div id="sheetRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(() => {
+/* ================= constants ================= */
+const DEFAULT_CITIZEN = ["Asked a question","Answered a question","Group recorder","Group reporter","Built on a classmate's idea"];
+const REMOVED_CITIZEN = ["Cited the text (with page #)","Respectfully disagreed","Brought in a quieter classmate"];
+const DEFAULT_CULPRIT = ["Missing materials","Unprepared (reading or homework)","Off-task device use","Non-class work during class"];
+const TEACHER_FILE = "data/teacher.json", REPORT_FILE = "data/reports.json";
+const DEFAULT_SCALE = [[-3,53],[-2,60],[-1,67],[0,76],[1,83],[2,90],[3,97],[3.5,100]];
+const DEFAULT_UNITS = [["Intro Unit", 10], ["Epistemology Unit", 20], ["Problem of Identity Unit", 20]];
+const OLD_SCALE = JSON.stringify([[0,76],[1,83],[2,90],[3,97],[3.5,100]]);
+const scaleOf = cfg => (cfg.scale && cfg.scale.length >= 2) ? cfg.scale : DEFAULT_SCALE;
+const scaleText = sc => sc.map(([a,g]) => `${a} = ${g}`).join("\n");
+const T_ITER = 250000, S_ITER = 100000;
+const CODE_ALPHA = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = o => JSON.parse(JSON.stringify(o));
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const fmtDate = iso => new Date(iso + "T12:00:00").toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
+const OTHER = "Other";
+const lbl = e => e.n ? `Other: ${e.n}` : e.l;
+function fbLabel(f, cid){
+  if (f.k === "checkin") return `Mid-unit check-in · ${f.u || ""}`;
+  if (f.k === "general") return `General feedback · ${fmtDate(f.d)}`;
+  const t = cid ? (dayMeta(f.d, cid).title || "") : ""; return `About class on ${fmtDate(f.d)}${t ? ": " + t : ""}`;
+}
+const first = n => String(n).split(" ")[0];
+const ls = {
+  get(k){ try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+function newCode(){ const b = crypto.getRandomValues(new Uint8Array(8)); let s=""; for (const x of b) s += CODE_ALPHA[x % CODE_ALPHA.length]; return s.slice(0,4)+"-"+s.slice(4); }
+const normCode = c => String(c).toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/* ================= crypto ================= */
+const te = new TextEncoder(), td = new TextDecoder();
+function b64(bytes){ let s=""; for (let i=0;i<bytes.length;i+=0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i,i+0x8000)); return btoa(s); }
+function unb64(str){ const s = atob(str); const b = new Uint8Array(s.length); for (let i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; }
+async function pbkdf2(pass, salt, iter, bits){
+  const k = await crypto.subtle.importKey("raw", te.encode(pass), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, k, bits));
+}
+const aesKey = raw => crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt","decrypt"]);
+async function gz(bytes, dir){
+  if (typeof CompressionStream === "undefined") return null;
+  const s = new Blob([bytes]).stream().pipeThrough(dir === "c" ? new CompressionStream("gzip") : new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+let tKeyCache = null; // {pass, salt, key}
+async function teacherKey(pass, saltB64){
+  if (tKeyCache && tKeyCache.pass === pass && tKeyCache.salt === saltB64) return tKeyCache.key;
+  const key = await aesKey(await pbkdf2(pass, unb64(saltB64), T_ITER, 256));
+  tKeyCache = {pass, salt: saltB64, key}; return key;
+}
+async function encryptTeacher(obj, pass, saltB64){
+  saltB64 = saltB64 || b64(crypto.getRandomValues(new Uint8Array(16)));
+  const key = await teacherKey(pass, saltB64);
+  let bytes = te.encode(JSON.stringify(obj)), z = 0;
+  const c = await gz(bytes, "c"); if (c) { bytes = c; z = 1; }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, bytes));
+  return {v:1, salt:saltB64, iter:T_ITER, z, iv:b64(iv), ct:b64(ct)};
+}
+async function decryptTeacher(file, pass){
+  const key = await teacherKey(pass, file.salt);
+  let bytes = new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(file.iv)}, key, unb64(file.ct)));
+  if (file.z) bytes = await gz(bytes, "d");
+  return JSON.parse(td.decode(bytes));
+}
+const sKeyCache = new Map(); // code|salt -> {key, id}
+async function studentKey(code, saltB64){
+  const ck = normCode(code) + "|" + saltB64;
+  if (sKeyCache.has(ck)) return sKeyCache.get(ck);
+  const bits = await pbkdf2(normCode(code), unb64(saltB64), S_ITER, 512);
+  const v = {key: await aesKey(bits.slice(0,32)), id: Array.from(bits.slice(32,44), b => b.toString(16).padStart(2,"0")).join("")};
+  sKeyCache.set(ck, v); return v;
+}
+
+/* ================= GitHub ================= */
+let conn = ls.get("ct-conn"); // {owner, repo, branch, token, pass}
+function gh(path, opts = {}){
+  return fetch(`https://api.github.com/repos/${encodeURIComponent(conn.owner)}/${encodeURIComponent(conn.repo)}/${path}`, {
+    ...opts, cache: "no-store",
+    headers: {Authorization: `Bearer ${conn.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {})}
+  });
+}
+async function ghErr(r){ let m = ""; try { m = (await r.json()).message || ""; } catch(e){} const e = new Error(m || ("GitHub error " + r.status)); e.status = r.status; return e; }
+async function listData(){
+  const r = await gh(`contents/data?ref=${encodeURIComponent(conn.branch)}`);
+  if (r.status === 404) return {};
+  if (!r.ok) throw await ghErr(r);
+  const arr = await r.json(); const out = {};
+  (Array.isArray(arr) ? arr : []).forEach(f => out[f.path] = f.sha);
+  return out;
+}
+async function readRaw(path){
+  const r = await gh(`contents/${path}?ref=${encodeURIComponent(conn.branch)}`, {headers: {Accept: "application/vnd.github.raw+json"}});
+  if (r.status === 404) return null;
+  if (!r.ok) throw await ghErr(r);
+  return await r.text();
+}
+async function writeFile(path, text, sha, message){
+  const body = {message, content: b64(te.encode(text)), branch: conn.branch}; if (sha) body.sha = sha;
+  const r = await gh(`contents/${path}`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  if (!r.ok) throw await ghErr(r);
+  return (await r.json()).content.sha;
+}
+
+/* ================= data model ================= */
+function emptyData(){
+  return {v:1, cfg:{classes:[], citizen:DEFAULT_CITIZEN.slice(), culprit:DEFAULT_CULPRIT.slice(), target:3, max:4, scale:DEFAULT_SCALE.map(p => p.slice()), cw:2, checkCut:93, ver:2, units:DEFAULT_UNITS.map(([name, pts]) => ({id:uid(), name, start:"", end:"", pts})), termStart:"", termEnd:"", reportSalt:b64(crypto.getRandomValues(new Uint8Array(16)))}, days:{}, fb:{}};
+}
+const dayIn = (s, d) => s.days[d] || (s.days[d] = {e:[], a:{}, m:[]});
+function apply(s, op){
+  if (op.t === "add"){ const day = dayIn(s, op.d); if (!day.e.some(e => e.id === op.e.id)) day.e.push(op.e); }
+  else if (op.t === "del"){ const day = dayIn(s, op.d); day.e = day.e.filter(e => e.id !== op.id); }
+  else if (op.t === "abs"){ const day = dayIn(s, op.d); day.a = day.a || {}; const set = new Set(day.a[op.c] || []); op.on ? set.add(op.s) : set.delete(op.s); day.a[op.c] = [...set]; }
+  else if (op.t === "day"){ const day = dayIn(s, op.d); day.g = day.g || {}; day.g[op.c] = {goal: op.goal, title: op.title}; }
+  else if (op.t === "chk"){ s.chk = s.chk || {}; s.chk[op.k] = op.d; }
+  else if (op.t === "met"){ const day = dayIn(s, op.d); day.m = day.m || []; if (!day.m.includes(op.c)) day.m.push(op.c); }
+  else if (op.t === "fb+"){ (s.fb[op.s] = s.fb[op.s] || []); if (!s.fb[op.s].some(f => f.id === op.f.id)) s.fb[op.s].push(op.f); }
+  else if (op.t === "fb-"){ s.fb[op.s] = (s.fb[op.s] || []).filter(f => f.id !== op.id); }
+  else if (op.t === "cfg"){ const salt = s.cfg.reportSalt; s.cfg = clone(op.cfg); s.cfg.reportSalt = salt || op.cfg.reportSalt; }
+  else if (op.t === "delclass"){ s.cfg.classes = s.cfg.classes.filter(c => c.id !== op.c); Object.values(s.days).forEach(d => { d.e = d.e.filter(e => e.c !== op.c); if (d.a) delete d.a[op.c]; if (d.m) d.m = d.m.filter(x => x !== op.c); }); }
+  return s;
+}
+let base = ls.get("ct-base");          // last state confirmed on GitHub
+let pending = ls.get("ct-pending") || []; // changes since then
+let state = null;
+function migrate(s){
+  const c = s.cfg; if (c.cw == null) c.cw = 2; if (c.checkCut == null) c.checkCut = 93; if (!c.units) c.units = DEFAULT_UNITS.map(([name, pts]) => ({id: uid(), name, start: "", end: "", pts})); s.chk = s.chk || {}; if (c.ver >= 2) return s;
+  c.citizen = (c.citizen || DEFAULT_CITIZEN.slice()).filter(l => !REMOVED_CITIZEN.includes(l));
+  if (!c.scale || JSON.stringify(c.scale) === OLD_SCALE) c.scale = DEFAULT_SCALE.map(p => p.slice());
+  delete c.deduct; c.ver = 2; return s;
+}
+function rebuild(){ state = migrate(pending.reduce(apply, migrate(clone(base || emptyData())))); }
+function commit(op){ pending.push(op); ls.set("ct-pending", pending); apply(state, op); render(); }
+
+/* ================= grading ================= */
+function classDates(cid, from, to){
+  return Object.keys(state.days).filter(d => (!from || d >= from) && (!to || d <= to)).filter(d => {
+    const day = state.days[d]; return (day.m || []).includes(cid) || day.e.some(e => e.c === cid);
+  }).sort();
+}
+const absent = (d, cid, sid) => ((state.days[d]?.a || {})[cid] || []).includes(sid);
+const dayMeta = (d, cid) => ((state.days[d]?.g || {})[cid]) || {};
+const goalOf = (d, cid) => dayMeta(d, cid).goal || state.cfg.target;
+function gradeFrom(avg, cfg){
+  if (avg == null) return null;
+  const sc = scaleOf(cfg); let raw;
+  if (avg <= sc[0][0]) raw = sc[0][1];
+  else if (avg >= sc[sc.length - 1][0]) raw = sc[sc.length - 1][1];
+  else { const i = sc.findIndex(p => p[0] >= avg); const [a0, g0] = sc[i - 1], [a1, g1] = sc[i]; raw = g0 + (g1 - g0) * (avg - a0) / (a1 - a0); }
+  return {grade: Math.round(raw)};
+}
+function stats(cls, from, to){
+  const cfg = state.cfg;
+  const dates = classDates(cls.id, from, to);
+  return cls.students.map(st => {
+    const present = dates.filter(d => !absent(d, cls.id, st.id));
+    const mine = present.flatMap(d => state.days[d].e.filter(e => e.c === cls.id && e.s === st.id).map(e => ({...e, d})));
+    const cit = mine.filter(e => e.k === "c"), cul = mine.filter(e => e.k === "x");
+    const by = {}; mine.forEach(e => { const key = e.k + ":" + e.l; by[key] = (by[key] || 0) + 1; });
+    const expected = present.reduce((a, d) => a + goalOf(d, cls.id), 0);
+    const net = cit.length - (cfg.cw ?? 2) * cul.length;
+    const avg = expected ? net / expected * cfg.target : null;
+    return {st, dates, present: present.length, cit: cit.length, cul: cul.length, net, expected, avg, by, mine, g: gradeFrom(avg, cfg)};
+  });
+}
+const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
+function unitList(){
+  return (state.cfg.units || []).filter(u => u.start).slice().sort((a, b) => a.start < b.start ? -1 : 1)
+    .map((u, i, arr) => ({...u, endD: u.end || (arr[i + 1] ? addDays(arr[i + 1].start, -1) : "")}));
+}
+function unitFor(date){
+  const L = unitList(); const hit = L.find(u => date >= u.start && (!u.endD || date <= u.endD));
+  if (hit) return hit; const past = L.filter(u => u.start <= date); return past[past.length - 1] || null;
+}
+const rangeOf = u => u ? [u.start, u.endD] : [state.cfg.termStart || "", state.cfg.termEnd || ""];
+const term = () => rangeOf(unitFor(todayISO()));
+const ptsOf = (g, pts) => g && pts ? Math.round(g.grade * pts / 10) / 10 : null;
+const fmtPts = v => v == null ? "–" : (Number.isInteger(v) ? v + ".0" : String(v));
+
+/* ================= sync ================= */
+let syncState = {busy:false, err:null, offline:false, msg:""};
+async function loadRemote(){
+  const shas = await listData();
+  const raw = shas[TEACHER_FILE] ? await readRaw(TEACHER_FILE) : null;
+  let data = null, file = null;
+  if (raw){ file = JSON.parse(raw); data = await decryptTeacher(file, conn.pass); }
+  return {data, file, shas};
+}
+async function pull(){
+  if (!conn) return;
+  syncState = {...syncState, busy:true, msg:"Loading…"}; renderSync();
+  try {
+    const {data} = await loadRemote();
+    if (data){ base = data; ls.set("ct-base", base); }
+    else if (!base) { base = emptyData(); }
+    syncState = {busy:false, err:null, offline:false};
+  } catch(e){
+    syncState = {busy:false, err: e.name === "OperationError" ? "The passphrase doesn't match the data saved on GitHub. Check it in Setup." : explain(e), offline: !e.status};
+  }
+  rebuild(); render();
+}
+function explain(e){
+  if (!e.status) return "Can't reach GitHub right now. Your taps are saved on this phone; submit again when you're online.";
+  if (e.status === 401) return "GitHub rejected the access token. Make a new one and paste it in Setup.";
+  if (e.status === 403 || e.status === 404) return "GitHub says this token can't reach that repository. Check the owner, repository name, and the token's Contents permission.";
+  return "GitHub said: " + e.message;
+}
+async function submit(){
+  if (!conn){ ui.view = "setup"; render(); toast("Connect to GitHub first."); return; }
+  if (syncState.busy) return;
+  syncState = {...syncState, busy:true, msg:"Saving…"}; renderSync(); renderSubmit();
+  for (let attempt = 0; attempt < 2; attempt++){
+    try {
+      const {data, file, shas} = await loadRemote();
+      const next = migrate(pending.reduce(apply, migrate(clone(data || base || emptyData()))));
+      syncState.msg = "Saving your log…"; renderSync();
+      const enc = await encryptTeacher(next, conn.pass, file && file.salt);
+      await writeFile(TEACHER_FILE, JSON.stringify(enc), shas[TEACHER_FILE], `Citizenship log ${todayISO()}`);
+      base = next; pending = []; ls.set("ct-base", base); ls.set("ct-pending", pending); rebuild();
+      syncState.msg = "Updating student reports…"; renderSync();
+      const reports = await buildReports(n => { syncState.msg = `Updating student reports ${n}…`; renderSync(); });
+      await writeFile(REPORT_FILE, JSON.stringify(reports), shas[REPORT_FILE], `Student reports ${todayISO()}`);
+      syncState = {busy:false, err:null, offline:false};
+      render(); toast("Submitted. Students see the update within a few minutes.");
+      return;
+    } catch(e){
+      if ((e.status === 409 || e.status === 422) && attempt === 0) continue; // another device saved first: reload and retry
+      syncState = {busy:false, err: e.name === "OperationError" ? "The passphrase doesn't match the data saved on GitHub. Check it in Setup." : explain(e), offline: !e.status};
+      render(); return;
+    }
+  }
+}
+async function buildReports(progress){
+  const cfg = state.cfg; const cu = unitFor(todayISO()); const [from, to] = rangeOf(cu); const out = {};
+  const started = unitList().filter(u => u.start <= todayISO());
+  let n = 0; const total = cfg.classes.reduce((a, c) => a + c.students.length, 0);
+  for (const cls of cfg.classes){
+    const perUnit = started.map(u => ({u, by: Object.fromEntries(stats(cls, u.start, u.endD).map(x => [x.st.id, x]))}));
+    for (const s of stats(cls, from, to)){
+      n++; if (n % 5 === 0) progress(`${n}/${total}`);
+      if (!s.st.code) continue;
+      const counts = (k, list) => list.map(l => ({l, n: s.by[k + ":" + l] || 0})).filter(x => x.n);
+      const extra = k => Object.keys(s.by).filter(key => key.startsWith(k + ":") && !(k === "c" ? cfg.citizen : cfg.culprit).concat(OTHER).includes(key.slice(2))).map(key => ({l: key.slice(2), n: s.by[key]}));
+      const recent = s.dates.slice(-12).reverse().map(d => ({
+        d, a: absent(d, cls.id, s.st.id), title: dayMeta(d, cls.id).title || "", goal: goalOf(d, cls.id),
+        c: s.mine.filter(e => e.d === d && e.k === "c").map(lbl),
+        x: s.mine.filter(e => e.d === d && e.k === "x").map(lbl)
+      }));
+      const report = {
+        name: s.st.name, cls: cls.name, updated: new Date().toISOString(), termStart: from, termEnd: to,
+        target: cfg.target, max: cfg.max, scale: scaleOf(cfg), cw: cfg.cw ?? 2, v: 2,
+        days: s.dates.length, present: s.present, cit: s.cit, cul: s.cul, net: s.net, expected: s.expected, avg: s.avg, g: s.g,
+        citBy: counts("c", cfg.citizen.concat(OTHER)).concat(extra("c")), culBy: counts("x", cfg.culprit.concat(OTHER)).concat(extra("x")),
+        fb: (state.fb[s.st.id] || []).slice().sort((a, b) => b.t - a.t).map(f => ({d: f.d, text: f.text, label: fbLabel(f, cls.id)})),
+        recent,
+        unit: cu ? {name: cu.name, pts: cu.pts, points: ptsOf(s.g, cu.pts), start: cu.start, end: cu.endD, current: !cu.endD || todayISO() <= cu.endD} : null,
+        units: perUnit.map(({u, by}) => { const x = by[s.st.id]; return {name: u.name, pts: u.pts, grade: x && x.g ? x.g.grade : null, points: x ? ptsOf(x.g, u.pts) : null, current: !u.endD || todayISO() <= u.endD}; })
+      };
+      const {key, id} = await studentKey(s.st.code, cfg.reportSalt);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, te.encode(JSON.stringify(report))));
+      out[id] = {iv: b64(iv), ct: b64(ct)};
+    }
+  }
+  return {v:1, salt: cfg.reportSalt, iter: S_ITER, updated: new Date().toISOString(), r: out};
+}
+
+/* ================= UI state ================= */
+const ui = Object.assign({view: "log", classId: null, date: todayISO(), sort: "roster", sheet: null, mode: "c", from: null, to: null, confirmDel: null}, ls.get("ct-ui") || {});
+ui.date = todayISO(); ui.sheet = null; ui.view = ui.view === "setup" ? "log" : ui.view;
+const saveUI = () => ls.set("ct-ui", {classId: ui.classId, sort: ui.sort, view: ui.view});
+let toastTimer = null, undoFn = null;
+function toast(msg, undo){
+  clearTimeout(toastTimer); undoFn = undo || null;
+  $("#toastRoot").innerHTML = `<div class="toast" role="status"><span>${esc(msg)}</span>${undo ? `<button data-act="undo">Undo</button>` : ""}</div>`;
+  toastTimer = setTimeout(() => { $("#toastRoot").innerHTML = ""; undoFn = null; }, 4500);
+}
+const curClass = () => state.cfg.classes.find(c => c.id === ui.classId) || null;
+
+/* ================= render ================= */
+function render(){
+  if (!state.cfg.classes.find(c => c.id === ui.classId)) ui.classId = state.cfg.classes[0]?.id || null;
+  if (!conn) ui.view = "setup";
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === ui.view));
+  const chips = $("#classChips");
+  chips.hidden = !state.cfg.classes.length || ui.view === "setup";
+  chips.innerHTML = state.cfg.classes.map(c => `<button class="chip" data-class="${c.id}" aria-pressed="${c.id === ui.classId}">${esc(c.name)}</button>`).join("");
+  let pre = syncState.err ? `<div class="banner err">${esc(syncState.err)}</div>` : "";
+  const m = $("#main");
+  if (ui.view === "setup") m.innerHTML = pre + setupHTML();
+  else if (!state.cfg.classes.length) m.innerHTML = pre + `<div class="empty"><h2>Add your first class</h2><p>Name the section and paste the roster in Setup. Each student gets a private code for the student page.</p><div><button class="btn" data-act="goto-setup">Go to Setup</button></div></div>`;
+  else if (ui.view === "report") m.innerHTML = pre + reportHTML();
+  else m.innerHTML = pre + logHTML();
+  renderSync(); renderSubmit(); renderSheet();
+}
+function renderSync(){
+  const p = $("#syncPill"), t = $("#syncText");
+  p.className = "sync" + (syncState.err ? " err" : pending.length ? " pending" : "");
+  t.textContent = !conn ? "Not connected to GitHub" : syncState.busy ? (syncState.msg || "Working…") : syncState.err ? (pending.length ? `${pending.length} change${pending.length === 1 ? "" : "s"} not submitted` : "Problem syncing") : pending.length ? `${pending.length} change${pending.length === 1 ? "" : "s"} not submitted` : "All submitted";
+}
+function renderSubmit(){
+  const r = $("#submitRoot"); const cls = curClass();
+  if (ui.view === "setup" || !cls || !conn){ r.innerHTML = ""; return; }
+  r.innerHTML = `<div class="submitbar"><div class="wrap">
+    <button class="btn" data-act="submit" ${syncState.busy ? "disabled" : ""}>${syncState.busy ? esc(syncState.msg || "Saving…") : ui.view === "log" ? `Submit ${esc(cls.name)} · ${esc(fmtDate(ui.date))}` : "Submit and update student reports"}</button>
+  </div></div>`;
+}
+function logHTML(){
+  const cls = curClass(); const cfg = state.cfg;
+  const day = state.days[ui.date] || {e: []};
+  const today = day.e.filter(e => e.c === cls.id);
+  const [from, to] = rangeOf(unitFor(ui.date));
+  const st = Object.fromEntries(stats(cls, from, to).map(s => [s.st.id, s]));
+  const nC = sid => today.filter(e => e.s === sid && e.k === "c").length;
+  const nX = sid => today.filter(e => e.s === sid && e.k === "x").length;
+  const goal = goalOf(ui.date, cls.id), title = dayMeta(ui.date, cls.id).title || "";
+  let list = cls.students.slice();
+  if (ui.sort === "fewest") list.sort((a, b) => nC(a.id) - nC(b.id) || (st[a.id].avg ?? 0) - (st[b.id].avg ?? 0));
+  const present = cls.students.filter(s => !absent(ui.date, cls.id, s.id));
+  const totalC = today.filter(e => e.k === "c").length;
+  const tiles = list.map(s => {
+    const n = nC(s.id), x = nX(s.id), g = st[s.id].g;
+    const pips = Array.from({length: cfg.max}, (_, i) => `<span class="pip${i < n ? " on" : ""}${i === goal - 1 ? " target" : ""}${i < n && n >= cfg.max ? " max" : ""}"></span>`).join("");
+    return `<button class="tile${absent(ui.date, cls.id, s.id) ? " absent" : ""}" data-student="${s.id}">
+      <span class="nm">${esc(s.name)}</span>
+      <span class="meta"><span class="pips" aria-label="${n} contributions today">${pips}${x ? `<span class="xbadge" aria-label="${x} culprit">×${x}</span>` : ""}</span>
+      <span class="gr">${g ? g.grade : "–"}</span></span></button>`;
+  }).join("");
+  let banner = "";
+  const cu = unitFor(todayISO());
+  if (!unitList().length) banner = `<div class="banner">Add start dates for your units in Setup so grades are counted unit by unit.</div>`;
+  else if (cu && cu.endD && ui.date === todayISO()){
+    const span = (new Date(cu.endD) - new Date(cu.start)) / 864e5; const mid = addDays(cu.start, Math.floor(span / 2));
+    const key = cu.id + ":" + cls.id;
+    if (todayISO() >= mid && todayISO() <= cu.endD && !(state.chk || {})[key]){
+      const low = stats(cls, cu.start, todayISO()).filter(x => x.g && x.g.grade < (cfg.checkCut ?? 93)).sort((a, b) => a.avg - b.avg);
+      banner = `<div class="checkin"><b>Mid-unit check-in: ${esc(cu.name)}</b>
+        <span class="small" style="color:var(--ink)">${low.length ? `${low.length} student${low.length === 1 ? " is" : "s are"} under ${cfg.checkCut ?? 93} so far. Tap a name to leave check-in feedback.` : `Everyone is at ${cfg.checkCut ?? 93} or above so far.`}</span>
+        ${low.length ? `<div class="names">${low.map(x => `<button data-fbstudent="${x.st.id}" data-kind="checkin">${esc(x.st.name)} · ${x.g.grade}</button>`).join("")}</div>` : ""}
+        <div><button class="btn sm ghost" data-act="chk-done" data-key="${key}">Done with check-in</button></div></div>`;
+    }
+  }
+  return `${banner}<div class="summary">
+      <span class="datebox"><input type="date" id="dateInput" value="${ui.date}" aria-label="Class date">${ui.date !== todayISO() ? ` <button class="linkbtn" data-act="today">Today</button>` : ""}</span>
+      <span><b>${present.length ? (totalC / present.length).toFixed(1) : "0.0"}</b> <span class="small">per student</span></span>
+      <span><b>${present.filter(s => !nC(s.id)).length}</b> <span class="small">not yet heard</span></span>
+      <button class="linkbtn" data-act="sort">Sort: ${ui.sort === "roster" ? "roster" : "fewest first"}</button>
+    </div>
+    <div class="dayrow">
+      <div class="field"><label class="lbl" for="dayTitle">Title for this class</label><input id="dayTitle" value="${esc(title)}" placeholder="Hume Harkness, quiz day…" maxlength="60"></div>
+      <div><span class="lbl">Goal this class</span><div class="stepper"><button data-act="goal-" aria-label="Lower goal">−</button><b id="goalVal">${goal}</b><button data-act="goal+" aria-label="Raise goal">+</button></div></div>
+    </div>
+    ${cls.students.length ? `<div class="grid">${tiles}</div>` : `<div class="empty"><p>No students in this class yet.</p><div><button class="btn" data-act="goto-setup">Add a roster</button></div></div>`}
+    <p class="small" style="margin-top:14px">Dots: today's citizen marks out of ${cfg.max}; the ringed dot is this class's goal of ${goal}. Red ×: culprit marks today (each counts −${cfg.cw ?? 2}). Number: suggested grade for ${esc(unitFor(ui.date)?.name || "all days")}.</p>`;
+}
+function reportUnit(){
+  if (ui.unit === "all") return null;
+  return unitList().find(u => u.id === ui.unit) || unitFor(todayISO());
+}
+function reportHTML(){
+  const cls = curClass(); const cfg = state.cfg;
+  const u = reportUnit(); const [from, to] = u ? rangeOf(u) : ["", ""];
+  const ss = stats(cls, from, to);
+  const citCols = cfg.citizen.concat(OTHER).filter(l => ss.some(s => s.by["c:" + l]));
+  const culCols = cfg.culprit.concat(OTHER).filter(l => ss.some(s => s.by["x:" + l]));
+  const dates = classDates(cls.id, from, to);
+  const rows = ss.map(s => `<tr><td><button class="namebtn" data-fbstudent="${s.st.id}" title="Leave feedback">${esc(s.st.name)}</button></td><td class="grade">${s.g ? s.g.grade : "–"}</td>${u ? `<td class="pts">${fmtPts(ptsOf(s.g, u.pts))}</td>` : ""}<td>${s.avg == null ? "–" : s.avg.toFixed(2)}</td><td>${s.net} / ${s.expected}</td><td>${s.cit}</td><td>${s.cul || ""}</td><td>${s.present}</td>${citCols.map(l => `<td>${s.by["c:" + l] || ""}</td>`).join("")}${culCols.map(l => `<td>${s.by["x:" + l] || ""}</td>`).join("")}</tr>`).join("");
+  const chips = unitList().map(x => `<button class="chip" data-unit="${x.id}" aria-pressed="${u && u.id === x.id}">${esc(x.name)}</button>`).join("") + `<button class="chip" data-unit="all" aria-pressed="${!u}">All days</button>`;
+  return `<div class="chips" style="margin-bottom:10px">${chips}</div>
+    <p class="small">${u ? `<b>${esc(u.name)}</b> · ${esc(fmtDate(u.start))} to ${u.endD ? esc(fmtDate(u.endD)) : "open"} · worth ${u.pts} pts. ` : ""}${dates.length} class day${dates.length === 1 ? "" : "s"} logged. These are suggested grades; you can always override them in your gradebook. Tap a name to leave feedback.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Student</th><th>Suggested grade</th>${u ? `<th>Points (of ${u.pts})</th>` : ""}<th>Adjusted avg</th><th>Net / expected</th><th>Citizen marks</th><th class="x">Culprit marks</th><th>Days present</th>${citCols.map(l => `<th>${esc(l)}</th>`).join("")}${culCols.map(l => `<th class="x">${esc(l)}</th>`).join("")}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="6">No students yet.</td></tr>`}</tbody>
+    </table></div>
+    <div class="row" style="margin-top:12px;justify-content:flex-start">
+      <button class="btn sm" data-act="copy-csv">Copy for gradebook</button>
+      <button class="btn sm ghost" data-act="dl-csv">Download CSV</button>
+    </div>
+    <textarea id="csvFallback" hidden readonly></textarea>
+    <p class="small">${esc(formulaText(cfg))}</p>`;
+}
+const formulaText = cfg => `Citizen marks count +1 and culprit marks −${cfg.cw ?? 2}. Net marks are divided by the total of each day's goal and scaled to a goal of ${cfg.target}, so a lighter day counts proportionally. That adjusted average sets the grade (${scaleOf(cfg).map(([a,g]) => `${a} → ${g}`).join(", ")}; in between scales evenly, rounded).`;
+function setupHTML(){
+  const c = conn || {owner: "Tojo555", repo: "citizenship", branch: "main", token: "", pass: ""};
+  const cfg = state.cfg;
+  const classes = cfg.classes.map(k => `<div class="card">
+      <h3>${esc(k.name)}</h3>
+      <div class="field"><label class="lbl" for="name-${k.id}">Class name</label><input id="name-${k.id}" value="${esc(k.name)}"></div>
+      <div><label class="lbl" for="roster-${k.id}">Roster (one student per line)</label><textarea id="roster-${k.id}">${esc(k.students.map(s => s.name).join("\n"))}</textarea></div>
+      <div class="row"><button class="btn sm" data-act="save-class" data-id="${k.id}">Save class</button>
+      <button class="btn sm danger" data-act="del-class" data-id="${k.id}">${ui.confirmDel === k.id ? "Tap again to delete class and its log" : "Delete class"}</button></div>
+      ${k.students.length ? `<div><div class="row"><span class="lbl">Student codes</span><button class="linkbtn" data-act="copy-codes" data-id="${k.id}">Copy all</button></div>
+      <div class="codes">${k.students.map(s => `<span>${esc(s.name)}</span><code>${esc(s.code)}</code><button class="linkbtn" data-act="recode" data-cls="${k.id}" data-id="${s.id}">${ui.confirmDel === "code-" + s.id ? "Confirm" : "New code"}</button>`).join("")}</div></div>` : ""}
+    </div>`).join("");
+  return `<div class="stack">
+    <div class="card">
+      <h3>GitHub connection</h3>
+      ${conn ? `<p class="small">Connected to <b>${esc(conn.owner)}/${esc(conn.repo)}</b>. Students use <b>${esc(conn.owner.toLowerCase())}.github.io/${esc(conn.repo)}/</b></p>` : `<ol class="steps">
+        <li>Upload <b>index.html</b> and <b>teacher.html</b> to a public GitHub repository (for example <b>citizenship</b>) and turn on GitHub Pages for it.</li>
+        <li>On GitHub, create a fine-grained personal access token for that repository only, with <b>Contents: Read and write</b>.</li>
+        <li>Fill in the boxes below on each phone or computer you'll use. Pick a teacher passphrase you won't forget: it locks your full log, and it can't be recovered.</li>
+      </ol>`}
+      <div class="nums">
+        <div class="field"><label class="lbl" for="cOwner">GitHub account</label><input id="cOwner" value="${esc(c.owner)}" autocapitalize="off"></div>
+        <div class="field"><label class="lbl" for="cRepo">Repository</label><input id="cRepo" value="${esc(c.repo)}" autocapitalize="off"></div>
+        <div class="field"><label class="lbl" for="cBranch">Branch</label><input id="cBranch" value="${esc(c.branch)}" autocapitalize="off"></div>
+      </div>
+      <div class="field"><label class="lbl" for="cToken">Access token</label><input id="cToken" type="password" value="${esc(c.token)}" autocomplete="off" placeholder="github_pat_…"></div>
+      <div class="field"><label class="lbl" for="cPass">Teacher passphrase</label><input id="cPass" type="password" value="${esc(c.pass)}" autocomplete="new-password"></div>
+      <div class="row"><button class="btn sm" data-act="connect">${conn ? "Update connection" : "Connect"}</button>
+      ${conn ? `<button class="btn sm danger" data-act="forget">${ui.confirmDel === "forget" ? "Tap again: erase from this device" : "Forget this device"}</button>` : ""}</div>
+      <p class="small">The token and passphrase stay on this device only. Use this page on your own phone and computer, not shared ones.</p>
+    </div>
+    <div class="card">
+      <h3>Grading</h3>
+      <div class="nums">
+        <div class="field"><label class="lbl" for="gTarget">Usual goal for a class</label><input id="gTarget" type="number" min="1" max="10" value="${cfg.target}"></div>
+        <div class="field"><label class="lbl" for="gMax">Max per day</label><input id="gMax" type="number" min="1" max="10" value="${cfg.max}"></div>
+        <div class="field"><label class="lbl" for="gCut">Check-in flags grades under</label><input id="gCut" type="number" min="0" max="100" value="${cfg.checkCut ?? 93}"></div>
+        <div class="field"><label class="lbl" for="gCw">Each culprit counts as −</label><input id="gCw" type="number" min="0" max="10" step="0.5" value="${cfg.cw ?? 2}"></div>
+      </div>
+      <div class="formula">${esc(formulaText(cfg))}<br>You change the goal for a single class on the Log screen.<br>Example: 3 citizen marks and 1 culprit on a goal-3 day, then 2 citizen marks on a goal-2 day → net ${5 - (cfg.cw ?? 2)} of 5 expected → adjusted average ${((5 - (cfg.cw ?? 2)) / 5 * cfg.target).toFixed(1)} → <b>${gradeFrom((5 - (cfg.cw ?? 2)) / 5 * cfg.target, cfg).grade}</b>.</div>
+      <div><label class="lbl" for="gScale">Grade scale (average per class = grade, one per line)</label><textarea id="gScale" style="min-height:130px">${esc(scaleText(scaleOf(cfg)))}</textarea><p class="small" style="margin:4px 0 0">Averages between two lines scale evenly. Above the last line or below the first, the grade stays at that line's grade. Negative averages are allowed (−1 = 67).</p></div>
+      <div><label class="lbl" for="gCit">Citizen buttons (one per line)</label><textarea id="gCit">${esc(cfg.citizen.join("\n"))}</textarea></div>
+      <div><label class="lbl" for="gCul">Culprit buttons (one per line)</label><textarea id="gCul">${esc(cfg.culprit.join("\n"))}</textarea></div>
+      <div><button class="btn sm" data-act="save-cfg">Save grading options</button></div>
+    </div>
+    <div class="card">
+      <h3>Units</h3>
+      <p class="small" style="margin:0">Each unit runs from its start date to its end date. Leave the end blank and it runs until the next unit starts. With an end date, you get a mid-unit check-in reminder halfway through.</p>
+      ${(cfg.units || []).map(u => `<div class="unitrow">
+        <div class="field wide"><label class="lbl" for="un-${u.id}">Unit name</label><input id="un-${u.id}" value="${esc(u.name)}"></div>
+        <div class="field"><label class="lbl" for="us-${u.id}">Starts</label><input id="us-${u.id}" type="date" value="${esc(u.start)}"></div>
+        <div class="field"><label class="lbl" for="ue-${u.id}">Ends</label><input id="ue-${u.id}" type="date" value="${esc(u.end)}"></div>
+        <div class="field"><label class="lbl" for="up-${u.id}">Worth (points)</label><input id="up-${u.id}" type="number" min="0" step="1" value="${u.pts}"></div>
+        <div style="align-self:end"><button class="btn sm danger" data-act="del-unit" data-id="${u.id}">${ui.confirmDel === "unit-" + u.id ? "Tap again to remove" : "Remove"}</button></div>
+      </div>`).join("")}
+      <div class="row" style="justify-content:flex-start"><button class="btn sm" data-act="save-units">Save units</button><button class="btn sm ghost" data-act="add-unit">Add a unit</button></div>
+    </div>
+    ${classes}
+    <div class="card">
+      <h3>Add a class</h3>
+      <div class="field"><label class="lbl" for="newName">Class name</label><input id="newName" placeholder="Philosophy, Block C"></div>
+      <div><label class="lbl" for="newRoster">Roster (one student per line)</label><textarea id="newRoster" placeholder="Paste names from your gradebook"></textarea></div>
+      <div><button class="btn sm" data-act="add-class">Add class</button></div>
+    </div>
+    <p class="small">Changes here are saved on this device right away and go to GitHub the next time you tap Submit.</p>
+  </div>`;
+}
+function renderSheet(){
+  const root = $("#sheetRoot"); const cls = curClass(); const cfg = state.cfg;
+  const st = ui.sheet && cls && cls.students.find(s => s.id === ui.sheet);
+  if (!st || (ui.view !== "log" && !(ui.view === "report" && ui.mode === "f"))){ root.innerHTML = ""; return; }
+  const onlyFb = ui.view !== "log";
+  const mine = (state.days[ui.date]?.e || []).filter(e => e.c === cls.id && e.s === st.id);
+  const nC = mine.filter(e => e.k === "c").length, abs = absent(ui.date, cls.id, st.id);
+  const full = nC >= cfg.max;
+  const fb = (state.fb[st.id] || []).slice().sort((a, b) => b.t - a.t);
+  const btns = (list, k) => list.map((l, i) => `<button class="cat${k === "x" ? " x" : ""}" data-cat="${i}" data-k="${k}" ${(k === "c" && full) || abs ? "disabled" : ""}><span class="n">${i + 1}</span>${esc(l)}</button>`).join("")
+    + `<button class="cat${k === "x" ? " x" : ""}" data-act="other" data-k="${k}" ${(k === "c" && full) || abs ? "disabled" : ""}><span class="n">${list.length + 1}</span>Other</button>`
+    + `<input class="othernote" id="other-${k}" placeholder="Note for Other (optional)" aria-label="Note for Other" maxlength="120" ${(k === "c" && full) || abs ? "disabled" : ""}>`;
+  let body = "";
+  if (ui.mode === "c") body = `${full ? `<div class="maxnote">${esc(first(st.name))} has reached the daily max of ${cfg.max}.</div>` : ""}<div class="cats">${btns(cfg.citizen, "c")}</div>`;
+  else if (ui.mode === "x") body = `<div class="cats">${btns(cfg.culprit, "x")}</div>`;
+  else {
+    const cu = unitFor(todayISO());
+    if (ui.fbKind === "checkin" && !cu) ui.fbKind = "general";
+    if (ui.fbKind === "day" && onlyFb) ui.fbKind = "general";
+    const kinds = [["general", "General"]].concat(cu ? [["checkin", "Mid-unit check-in"]] : []).concat(onlyFb ? [] : [["day", `This class · ${fmtDate(ui.date)}`]]);
+    const ph = ui.fbKind === "checkin" ? "Halfway through the unit, here's where you stand and one thing to work on…" : ui.fbKind === "day" ? "Strong use of the text today. Next step: invite a quieter classmate in." : "Overall, you…";
+    body = `<div><span class="lbl">Type of feedback</span><div class="kinds">${kinds.map(([k, l]) => `<button data-fbkind="${k}" aria-pressed="${ui.fbKind === k}">${esc(l)}</button>`).join("")}</div></div>
+    <div><label class="lbl" for="fbText">Feedback ${esc(first(st.name))} will see</label><textarea id="fbText" placeholder="${esc(ph)}">${esc(ui.fbDraft || "")}</textarea></div>
+    <div><button class="btn sm" data-act="add-fb">Add feedback</button></div>
+    ${fb.length ? `<ul class="loglist">${fb.map(f => `<li><span><span class="small">${esc(fbLabel(f, cls.id))}</span><br>${esc(f.text)}</span><button class="x-rm" data-fbrm="${f.id}">Remove</button></li>`).join("")}</ul>` : ""}`;
+  }
+  root.innerHTML = `<div class="scrim" data-act="close"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(st.name)}">
+    <div class="wrap">
+      <div class="grab"></div>
+      <div class="sheethead"><h2>${esc(st.name)}</h2>${onlyFb ? "" : `<span class="count">${nC} of ${cfg.max} · ${esc(fmtDate(ui.date))}</span>`}</div>
+      <div class="seg" role="tablist" ${onlyFb ? "hidden" : ""}>
+        <button class="cit" role="tab" aria-selected="${ui.mode === "c"}" data-mode="c">Citizen</button>
+        <button class="cul" role="tab" aria-selected="${ui.mode === "x"}" data-mode="x">Culprit</button>
+        <button class="fb" role="tab" aria-selected="${ui.mode === "f"}" data-mode="f">Feedback${fb.length ? ` (${fb.length})` : ""}</button>
+      </div>
+      ${body}
+      ${mine.length && ui.mode !== "f" ? `<div><div class="lbl">Logged ${esc(fmtDate(ui.date))}</div><ul class="loglist">${mine.map(e => `<li><span><span class="tag ${e.k}">${e.k === "c" ? "Citizen" : "Culprit"}</span>${esc(lbl(e))}</span><button class="x-rm" data-remove="${e.id}">Remove</button></li>`).join("")}</ul></div>` : ""}
+      <div class="row">
+        ${onlyFb ? "<span></span>" : `<label class="switch"><input type="checkbox" id="absentToggle" ${abs ? "checked" : ""}> Absent this day</label>`}
+        <button class="btn sm ghost" data-act="close">Done</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= actions ================= */
+function parseRoster(text, old = []){
+  const byName = Object.fromEntries(old.map(s => [s.name.toLowerCase(), s]));
+  const seen = new Set();
+  return text.split("\n").map(s => s.replace(/^\s*\d+[.)]\s*/, "").trim()).filter(Boolean)
+    .filter(n => { const k = n.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+    .map(name => { const o = byName[name.toLowerCase()]; return o ? {...o, name} : {id: uid(), name, code: newCode()}; });
+}
+const lines = t => t.split("\n").map(s => s.replace(/^\s*\d+[.)]\s*/, "").trim()).filter(Boolean);
+function readUnits(){
+  if (!document.querySelector("[id^=un-]")) return;
+  cfgOp(c => c.units.forEach(u => {
+    const el = id => document.getElementById(id + "-" + u.id); if (!el("un")) return;
+    u.name = el("un").value.trim() || u.name; u.start = el("us").value; u.end = el("ue").value;
+    u.pts = Math.max(0, parseFloat(el("up").value) || 0);
+  }));
+}
+function cfgOp(mut){ const c = clone(state.cfg); mut(c); commit({t: "cfg", cfg: c}); }
+function log(i, k, note){
+  const cls = curClass(); const sid = ui.sheet; const cfg = state.cfg;
+  const label = i === -1 ? OTHER : (k === "c" ? cfg.citizen : cfg.culprit)[i]; if (!cls || !sid || !label) return;
+  const mine = (state.days[ui.date]?.e || []).filter(e => e.c === cls.id && e.s === sid && e.k === "c");
+  if (k === "c" && mine.length >= cfg.max) return;
+  const e = {id: uid(), c: cls.id, s: sid, k, l: label, t: Date.now()}; if (note) e.n = note;
+  const d = ui.date; commit({t: "add", d, e});
+  const st = cls.students.find(s => s.id === sid);
+  ui.sheet = null; renderSheet();
+  toast(`${first(st.name)} · ${k === "x" ? "Culprit" : "Citizen"}: ${lbl(e)}`, () => commit({t: "del", d, id: e.id}));
+}
+function buildCSV(){
+  const cls = curClass(); const cfg = state.cfg;
+  const u = reportUnit(); const [from, to] = u ? rangeOf(u) : ["", ""];
+  const ss = stats(cls, from, to);
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const rows = [["Student", "Suggested grade", ...(u ? [`${u.name} points (of ${u.pts})`] : []), "Adjusted avg", "Net marks", "Expected (sum of goals)", "Citizen marks", "Culprit marks", "Days present", ...cfg.citizen, OTHER, ...cfg.culprit.concat(OTHER).map(l => "Culprit: " + l)].map(q).join(",")];
+  ss.forEach(s => rows.push([s.st.name, s.g ? s.g.grade : "", ...(u ? [ptsOf(s.g, u.pts) ?? ""] : []), s.avg == null ? "" : s.avg.toFixed(2), s.net, s.expected, s.cit, s.cul, s.present, ...cfg.citizen.concat(OTHER).map(l => s.by["c:" + l] || 0), ...cfg.culprit.concat(OTHER).map(l => s.by["x:" + l] || 0)].map(q).join(",")));
+  return rows.join("\n");
+}
+async function copyText(text, fallbackId){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch(e){ const ta = $("#" + fallbackId); if (ta){ ta.hidden = false; ta.value = text; ta.focus(); ta.select(); } return false; }
+}
+
+document.addEventListener("click", async ev => {
+  const t = ev.target.closest("button, .scrim"); if (!t) return;
+  if (t.dataset.view){ ui.view = t.dataset.view; ui.sheet = null; ui.confirmDel = null; saveUI(); render(); return; }
+  if (t.dataset.unit){ ui.unit = t.dataset.unit; render(); return; }
+  if (t.dataset.fbstudent){ ui.sheet = t.dataset.fbstudent; ui.mode = "f"; ui.fbKind = t.dataset.kind || "general"; ui.fbDraft = ""; renderSheet(); return; }
+  if (t.dataset.fbkind){ ui.fbKind = t.dataset.fbkind; renderSheet(); return; }
+  if (t.dataset.class){ ui.classId = t.dataset.class; ui.sheet = null; saveUI(); render(); return; }
+  if (t.dataset.student){ ui.sheet = t.dataset.student; ui.mode = "c"; ui.fbKind = "general"; ui.fbDraft = ""; renderSheet(); return; }
+  if (t.dataset.mode){ ui.mode = t.dataset.mode; renderSheet(); return; }
+  if (t.dataset.act === "other"){ const k = t.dataset.k, v = ($("#other-" + k)?.value || "").trim(); log(-1, k, v); return; }
+  if (t.dataset.cat != null){ log(+t.dataset.cat, t.dataset.k); return; }
+  if (t.dataset.remove){ commit({t: "del", d: ui.date, id: t.dataset.remove}); return; }
+  if (t.dataset.fbrm){ commit({t: "fb-", s: ui.sheet, id: t.dataset.fbrm}); return; }
+  const act = t.dataset.act; const cls = curClass();
+  if (act === "close"){ ui.sheet = null; renderSheet(); }
+  else if (act === "undo" && undoFn){ const u = undoFn; undoFn = null; $("#toastRoot").innerHTML = ""; u(); }
+  else if (act === "goto-setup"){ ui.view = "setup"; render(); }
+  else if (act === "chk-done"){ commit({t: "chk", k: t.dataset.key, d: todayISO()}); toast("Check-in marked done."); }
+  else if (act === "add-unit"){ readUnits(); cfgOp(c => c.units.push({id: uid(), name: "New unit", start: "", end: "", pts: 20})); }
+  else if (act === "del-unit"){
+    const id = t.dataset.id; if (ui.confirmDel !== "unit-" + id){ ui.confirmDel = "unit-" + id; render(); return; }
+    ui.confirmDel = null; cfgOp(c => { c.units = c.units.filter(u => u.id !== id); });
+  }
+  else if (act === "save-units"){ readUnits(); toast("Units saved."); }
+  else if (act === "goal-" || act === "goal+"){
+    const g = goalOf(ui.date, cls.id) + (act === "goal+" ? 1 : -1);
+    if (g < 1 || g > state.cfg.max) return;
+    commit({t: "day", d: ui.date, c: cls.id, goal: g, title: dayMeta(ui.date, cls.id).title || ""});
+  }
+  else if (act === "today"){ ui.date = todayISO(); render(); }
+  else if (act === "sort"){ ui.sort = ui.sort === "roster" ? "fewest" : "roster"; saveUI(); render(); }
+  else if (act === "submit"){ if (ui.view === "log" && cls) { pending.push({t: "met", d: ui.date, c: cls.id}); ls.set("ct-pending", pending); apply(state, pending[pending.length - 1]); } submit(); }
+  else if (act === "sync"){ if (pending.length) submit(); else pull(); }
+  else if (act === "add-fb"){
+    const text = $("#fbText").value.trim(); if (!text) { $("#fbText").focus(); return; }
+    const k = ui.fbKind || "general"; const f = {id: uid(), d: k === "day" ? ui.date : todayISO(), t: Date.now(), text, k};
+    if (k === "checkin") f.u = unitFor(todayISO())?.name || "";
+    ui.fbDraft = ""; commit({t: "fb+", s: ui.sheet, f}); toast("Feedback added. Students see it after you submit.");
+  }
+  else if (act === "connect"){
+    const n = {owner: $("#cOwner").value.trim(), repo: $("#cRepo").value.trim(), branch: $("#cBranch").value.trim() || "main", token: $("#cToken").value.trim(), pass: $("#cPass").value};
+    if (!n.owner || !n.repo || !n.token || n.pass.length < 8){ toast(n.pass.length < 8 && n.token ? "Use a passphrase of at least 8 characters." : "Fill in the account, repository, token and passphrase."); return; }
+    conn = n; ls.set("ct-conn", conn); tKeyCache = null;
+    await pull();
+    if (!syncState.err){ toast("Connected."); if (!state.cfg.classes.length) { ui.view = "setup"; } else ui.view = "log"; render(); }
+  }
+  else if (act === "forget"){
+    if (ui.confirmDel !== "forget"){ ui.confirmDel = "forget"; render(); return; }
+    ["ct-conn", "ct-base", "ct-pending", "ct-ui"].forEach(ls.del); location.reload();
+  }
+  else if (act === "save-cfg"){
+    const target = Math.max(1, Math.min(10, parseInt($("#gTarget").value) || 3));
+    const max = Math.max(target, Math.min(10, parseInt($("#gMax").value) || 4));
+    const scale = $("#gScale").value.replace(/[−–]/g, "-").split("\n").map(l => l.match(/^\s*(-?[\d.]+)\s*(?:=|:|,|→|->)\s*([\d.]+)\s*$/)).filter(Boolean).map(m => [parseFloat(m[1]), parseFloat(m[2])]).sort((a, b) => a[0] - b[0]);
+    if (scale.length < 2){ toast("The grade scale needs at least two lines, like 1 = 83."); return; }
+    const cit = lines($("#gCit").value), cul = lines($("#gCul").value);
+    cfgOp(c => Object.assign(c, {target, max, scale, checkCut: Math.max(0, Math.min(100, parseInt($("#gCut").value) || 0)), cw: Math.max(0, Math.min(10, parseFloat($("#gCw").value) || 0)), citizen: cit.length ? cit : DEFAULT_CITIZEN.slice(), culprit: cul.length ? cul : DEFAULT_CULPRIT.slice()}));
+    toast("Grading options saved.");
+  }
+  else if (act === "add-class"){
+    const name = $("#newName").value.trim(); const students = parseRoster($("#newRoster").value);
+    if (!name){ toast("Give the class a name first."); $("#newName").focus(); return; }
+    const id = uid(); cfgOp(c => c.classes.push({id, name, students})); ui.classId = id; saveUI();
+    toast(`Added ${name} with ${students.length} student${students.length === 1 ? "" : "s"}.`);
+  }
+  else if (act === "save-class"){
+    const id = t.dataset.id;
+    cfgOp(c => { const k = c.classes.find(x => x.id === id); k.name = $("#name-" + id).value.trim() || k.name; k.students = parseRoster($("#roster-" + id).value, k.students); });
+    toast("Class saved.");
+  }
+  else if (act === "del-class"){
+    const id = t.dataset.id;
+    if (ui.confirmDel !== id){ ui.confirmDel = id; render(); return; }
+    ui.confirmDel = null; commit({t: "delclass", c: id}); toast("Class deleted.");
+  }
+  else if (act === "recode"){
+    const sid = t.dataset.id, cid = t.dataset.cls;
+    if (ui.confirmDel !== "code-" + sid){ ui.confirmDel = "code-" + sid; render(); return; }
+    ui.confirmDel = null; cfgOp(c => { const s = c.classes.find(x => x.id === cid).students.find(x => x.id === sid); s.code = newCode(); });
+    toast("New code made. The old one stops working after you submit.");
+  }
+  else if (act === "copy-codes"){
+    const k = state.cfg.classes.find(x => x.id === t.dataset.id);
+    const ok = await copyText(k.students.map(s => `${s.name}\t${s.code}`).join("\n"), "csvFallback");
+    toast(ok ? "Codes copied." : "Copying isn't allowed here. Select the codes on screen instead.");
+  }
+  else if (act === "copy-csv"){ const ok = await copyText(buildCSV(), "csvFallback"); toast(ok ? "Copied. Paste into your gradebook or a spreadsheet." : "Select all and copy the text below."); }
+  else if (act === "dl-csv"){
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buildCSV()], {type: "text/csv"}));
+    a.download = `${cls.name.replace(/[^\w\- ]/g, "")} ${(reportUnit()?.name || "all days").replace(/[^\w\- ]/g, "")} citizenship.csv`; document.body.appendChild(a); a.click(); a.remove();
+  }
+});
+document.addEventListener("input", ev => { if (ev.target.id === "fbText") ui.fbDraft = ev.target.value; });
+document.addEventListener("change", ev => {
+  const t = ev.target;
+  if (t.id === "dateInput" && t.value){ ui.date = t.value; render(); }
+  else if (t.id === "dayTitle"){ const cls = curClass(); const v = t.value.trim(); if (v !== (dayMeta(ui.date, cls.id).title || "")) commit({t: "day", d: ui.date, c: cls.id, goal: goalOf(ui.date, cls.id), title: v}); }
+  else if (t.id === "absentToggle"){ const cls = curClass(); commit({t: "abs", d: ui.date, c: cls.id, s: ui.sheet, on: t.checked}); }
+});
+document.addEventListener("keydown", ev => {
+  if (!ui.sheet) return;
+  if (ev.key === "Escape"){ ui.sheet = null; renderSheet(); return; }
+  const ae = document.activeElement;
+  if (ev.key === "Enter" && ae && /^other-/.test(ae.id)){ ev.preventDefault(); document.querySelector(`[data-act=other][data-k=${ae.id.slice(6)}]`).click(); return; }
+  if (/^(INPUT|TEXTAREA)$/.test(ae?.tagName || "")) return;
+  const n = parseInt(ev.key); const list = ui.mode === "x" ? state.cfg.culprit : state.cfg.citizen;
+  if (ui.mode !== "f" && n >= 1 && n <= list.length) log(n - 1, ui.mode);
+  else if (ui.mode !== "f" && n === list.length + 1) log(-1, ui.mode, "");
+});
+window.addEventListener("beforeunload", e => { if (pending.length && syncState.busy) { e.preventDefault(); e.returnValue = ""; } });
+
+rebuild(); render(); pull();
+})();
+</script>
+</body>
+</html>
